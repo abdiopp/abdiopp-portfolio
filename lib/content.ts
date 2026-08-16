@@ -56,7 +56,7 @@ export const person: Person = {
   short: 'Abdullah',
   role: 'Team Lead · Full-Stack & AI Engineer',
   location: 'Faisalabad, Punjab, Pakistan',
-  email: 'ginnieabdullah007@gmail.com',
+  email: 'abdioppbtw@gmail.com',
   phone: '+92 330 9777119',
   phoneHref: '+923309777119',
   github: 'https://github.com/abdiopp',
