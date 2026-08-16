@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Splash, { splashBoot } from '@/components/Splash';
 import { person } from '@/lib/content';
 import { body, display, mono } from './fonts';
 import './globals.css';
@@ -48,7 +49,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {/* First thing in the body so it settles whether the splash opens before
+            anything paints — React hydrates far too late to make that call. */}
+        <script dangerouslySetInnerHTML={{ __html: splashBoot }} />
+        <Splash brand={person.short} role={person.role} />
+        {children}
+      </body>
     </html>
   );
 }
