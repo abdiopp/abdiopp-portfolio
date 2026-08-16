@@ -59,6 +59,12 @@ export const MAT = {
   metal:   rgb('#232C45'),
   dark:    rgb('#0A0E1C'),
   white:   rgb('#DCE6FF'),
+  // Anodised aluminium, for hardware that has to read as a *product* rather
+  // than as architecture: bright enough to catch the key light against a scene
+  // built almost entirely out of navy, but still tinted into the palette.
+  alu:     rgb('#6C7691'),
+  aluLo:   rgb('#454E68'),
+  glass:   rgb('#05070E'),   // display glass, bezels, keycaps
 } as const;
 
 export const FOG_NEAR = 90;
@@ -76,9 +82,12 @@ export interface FaceOpts {
   tilt?: number;
   top?: boolean;
   bottom?: boolean;
+  /** Push this face back by `behind` units for sorting only. See `Face.bias`. */
+  behind?: number;
   topColor?: ColorIn;
   bottomColor?: ColorIn;
   topOpts?: FaceOpts;
+  bottomOpts?: FaceOpts;
 }
 
 export interface Face {
@@ -91,6 +100,21 @@ export interface Face {
   speed: number;
   noCull: boolean;
   alpha: number;
+  /** Depth added at sort time only — the renderer's polygon offset.
+   *
+   *  A painter's algorithm keys every face on its *average* depth, which is
+   *  hopeless for a surface with things lying on it: a desk top averages to its
+   *  own centre and therefore sorts in front of half the objects standing on
+   *  it. Worse, because the camera carries yaw, view depth varies with world x
+   *  as well as z — so a full-width keyboard deck (average x = 0) beats every
+   *  keycap on its left-hand half, and the keyboard loses a vertical stripe.
+   *  No amount of lifting details in y fixes that; the offending term is
+   *  horizontal.
+   *
+   *  Surfaces that exist to be *stood on* — island decking, a desk top, a
+   *  laptop's palm rest, the glass behind a screen's UI — therefore declare how
+   *  far back to sort, and everything resting on them wins by construction. */
+  bias: number;
 }
 
 export interface LabelOpts {
@@ -101,6 +125,30 @@ export interface LabelOpts {
 export interface Label {
   p: Vec3; text: string; size: number; color: RGB;
   weight: number; track: number; max: number; upper: boolean; mono: boolean;
+}
+
+export interface GlyphOpts {
+  /** Height of the mark in world units — it scales with 1/z like real geometry. */
+  size?: number;
+  color?: ColorIn;
+  alpha?: number;
+  /** Bloom strength. 0 draws the mark flat, with no halo. */
+  emit?: number;
+  /** Fully faded beyond this camera distance. */
+  max?: number;
+  pulse?: number;
+  speed?: number;
+}
+
+/** A brand mark: SVG path data on a 24x24 grid, billboarded at a world point.
+ *  The renderer has no texturing, so a logo cannot be painted onto a face —
+ *  it is filled in screen space at the projected anchor instead, exactly like
+ *  the in-world signage, and stamped into the same bloom buffer as the
+ *  emissive quads so it belongs to the scene's light rather than sitting on
+ *  top of it as an overlay. */
+export interface Glyph {
+  p: Vec3; path: string; size: number; color: RGB;
+  alpha: number; emit: number; max: number; pulse: number; speed: number;
 }
 
 export interface FlowEmitter {
@@ -123,9 +171,52 @@ export class Builder {
   faces: Face[] = [];
   labels: Label[] = [];
   emitters: Emitter[] = [];
+  glyphs: Glyph[] = [];
 
   constructor(accent: ColorIn) {
     this.accent = rgb(accent);
+  }
+
+  /** Build in a convenient upright frame, then rotate everything that `build`
+   *  produced about `pivot` — pitch about the local X axis first, then yaw
+   *  about Y.
+   *
+   *  `prism` only extrudes along Y, so without this there is no way to make a
+   *  tilted solid: a laptop lid, a propped-open panel, a leaning sign. Rather
+   *  than add a second geometry path with its own bugs, the lid is modelled
+   *  *closed* — lying flat over the base, which is where its rounded corners
+   *  come out right — and then swung open about the hinge line. Nests: an inner
+   *  group's output is just more faces to the outer one. */
+  group(pivot: Vec3, yaw: number, pitch: number, build: () => void): this {
+    const f0 = this.faces.length, l0 = this.labels.length;
+    const e0 = this.emitters.length, g0 = this.glyphs.length;
+    build();
+
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const rot = (v: Vec3): Vec3 => {
+      const y = v[1] * cp - v[2] * sp, z = v[1] * sp + v[2] * cp;
+      return [v[0] * cy + z * sy, y, -v[0] * sy + z * cy];
+    };
+    const at = (p: Vec3): Vec3 => {
+      const r = rot([p[0] - pivot[0], p[1] - pivot[1], p[2] - pivot[2]]);
+      return [r[0] + pivot[0], r[1] + pivot[1], r[2] + pivot[2]];
+    };
+
+    for (let i = f0; i < this.faces.length; i++) {
+      const f = this.faces[i];
+      f.pts = f.pts.map(at);
+      f.mid = at(f.mid);
+      f.n = rot(f.n);
+    }
+    for (let i = l0; i < this.labels.length; i++) this.labels[i].p = at(this.labels[i].p);
+    for (let i = g0; i < this.glyphs.length; i++) this.glyphs[i].p = at(this.glyphs[i].p);
+    for (let i = e0; i < this.emitters.length; i++) {
+      const e = this.emitters[i];
+      if (e.kind === 'flow') { e.from = at(e.from); e.to = at(e.to); }
+      else e.center = at(e.center);
+    }
+    return this;
   }
 
   /** Push one polygon. `center` is the owning solid's centroid, used to orient
@@ -154,6 +245,7 @@ export class Builder {
       speed: opts.speed || 1.6,
       noCull: !center || !!opts.noCull,
       alpha: opts.alpha == null ? 1 : opts.alpha,
+      bias: opts.behind || 0,
     });
     return this;
   }
@@ -171,7 +263,7 @@ export class Builder {
     }
     if (opts.bottom) {
       this.quad(foot.map(p => [p[0], y0, p[1]] as Vec3).reverse(),
-        opts.bottomColor || color, opts, center);
+        opts.bottomColor || color, opts.bottomOpts || opts, center);
     }
     if (y1 !== y0) {
       for (let i = 0; i < n; i++) {
@@ -223,6 +315,21 @@ export class Builder {
     return this;
   }
 
+  /** A brand mark from `logos.ts`, anchored at a world point. */
+  glyph(x: number, y: number, z: number, path: string, opts: GlyphOpts = {}): this {
+    this.glyphs.push({
+      p: [x, y, z], path,
+      size: opts.size || 3,
+      color: opts.color ? rgb(opts.color) : this.accent,
+      alpha: opts.alpha == null ? 1 : opts.alpha,
+      emit: opts.emit == null ? 0.9 : opts.emit,
+      max: opts.max || 420,
+      pulse: opts.pulse == null ? -1 : opts.pulse,
+      speed: opts.speed || 0.8,
+    });
+    return this;
+  }
+
   /* Animated point lights: packets on a line, orbiting beacons, rising motes. */
   flow(from: Vec3, to: Vec3, o: Partial<FlowEmitter> & { color?: ColorIn } = {}): this {
     this.emitters.push({
@@ -248,12 +355,38 @@ export class Builder {
 }
 
 /* ---------------------------------------------------- footprint helpers -- */
+
 export function rect(cx: number, cz: number, w: number, d: number, rot: number): Vec2[] {
   const hw = w / 2, hd = d / 2;
   const pts: Vec2[] = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
   if (!rot) return pts.map(p => [cx + p[0], cz + p[1]] as Vec2);
   const c = Math.cos(rot), s = Math.sin(rot);
   return pts.map(p => [cx + p[0] * c - p[1] * s, cz + p[0] * s + p[1] * c] as Vec2);
+}
+
+/** A rectangle with rounded corners, as a footprint for `prism`.
+ *  `seg` segments per corner — 3 is plenty at the scale these are seen, and the
+ *  extra side faces are the whole reason a unibody shell reads as milled
+ *  aluminium instead of as a cardboard box. */
+export function roundRect(cx: number, cz: number, w: number, d: number,
+                          r: number, rot = 0, seg = 3): Vec2[] {
+  const hw = w / 2, hd = d / 2;
+  const rr = Math.min(r, hw, hd);
+  const pts: Vec2[] = [];
+  // corner centres, counter-clockwise from the -x/-z corner
+  const corners: Vec2[] = [
+    [-hw + rr, -hd + rr], [hw - rr, -hd + rr], [hw - rr, hd - rr], [-hw + rr, hd - rr],
+  ];
+  corners.forEach((c, i) => {
+    const a0 = Math.PI + (i * Math.PI) / 2;
+    for (let k = 0; k <= seg; k++) {
+      const a = a0 + (k / seg) * (Math.PI / 2);
+      pts.push([c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr]);
+    }
+  });
+  if (!rot) return pts.map(p => [cx + p[0], cz + p[1]] as Vec2);
+  const co = Math.cos(rot), si = Math.sin(rot);
+  return pts.map(p => [cx + p[0] * co - p[1] * si, cz + p[0] * si + p[1] * co] as Vec2);
 }
 
 export function ngon(cx: number, cz: number, r: number, n: number, rot = 0): Vec2[] {
@@ -269,17 +402,33 @@ export function ngon(cx: number, cz: number, r: number, n: number, rot = 0): Vec
 
 /** Every island stands on the same tapered octagonal deck with a neon rim — the
  *  single strongest cue that these six scenes belong to one world. */
-export function island(b: Builder, r: number, o: { sides?: number; rot?: number; motes?: boolean } = {}) {
+export function island(
+  b: Builder, r: number,
+  o: { sides?: number; rot?: number; motes?: boolean } = {}
+) {
   const sides = o.sides || 8, rot = o.rot ?? 0.39;
-  b.prism(ngon(0, 0, r, sides, rot), -1.2, 0, MAT.deck, { topColor: MAT.deckTop });
-  b.prism(ngon(0, 0, r - 1.1, sides, rot), -3.4, -1.2, MAT.rock, { top: false });
-  b.prism(ngon(0, 0, r * 0.72, sides, rot), -9, -3.4, MAT.rock, { top: false });
-  b.prism(ngon(0, 0, r * 0.34, sides, rot), -17, -9, MAT.rock, { top: false, bottom: true });
-  // rim light
+  // The decking is the largest horizontal plane in the world and everything in
+  // the scene stands on it, so the whole island sorts all the way back — see
+  // `Face.bias`. Biasing the island as one object rather than one face keeps
+  // its own parts ordered correctly against each other: the rock underside must
+  // still not paint over the deck it hangs from.
+  const back = r * 1.2;
+  // The understructure sorts a further island-radius back again. Its near-side
+  // faces are a whole radius closer to the lens than the deck's centroid, so on
+  // equal bias they draw last and hang a rock spike over the deck they support.
+  const under = back + r;
+  b.prism(ngon(0, 0, r, sides, rot), -1.2, 0, MAT.deck,
+    { topColor: MAT.deckTop, behind: back });
+  b.prism(ngon(0, 0, r - 1.1, sides, rot), -3.4, -1.2, MAT.rock, { top: false, behind: under });
+  b.prism(ngon(0, 0, r * 0.72, sides, rot), -9, -3.4, MAT.rock, { top: false, behind: under });
+  b.prism(ngon(0, 0, r * 0.34, sides, rot), -17, -9, MAT.rock,
+    { top: false, bottom: true, behind: under });
+  // rim light — outboard of everything, so it stays in front of the whole island
   b.prism(ngon(0, 0, r + 0.5, sides, rot), -0.55, -0.05, b.accent,
-    { top: false, emit: 0.9, pulse: 0.4, speed: 0.7 });
+    { top: false, emit: 0.9, pulse: 0.4, speed: 0.7, behind: back - 1 });
   // inner plaza inlay
-  b.prism(ngon(0, 0, r * 0.86, sides, rot), 0.01, 0.06, mixc(MAT.deckTop, b.accent, 0.10));
+  b.prism(ngon(0, 0, r * 0.86, sides, rot), 0.01, 0.06, mixc(MAT.deckTop, b.accent, 0.10),
+    { behind: back });
   if (o.motes !== false) b.motes([0, 2, 0], r * 0.95, { n: 12, rise: 26, r: 0.75 });
   return b;
 }

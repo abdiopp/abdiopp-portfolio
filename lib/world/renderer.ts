@@ -44,7 +44,10 @@ export interface World {
 }
 
 interface Star { p: Vec3; m: number; ph: number }
-interface DrawRec { q: [number, number, number][]; z: number; f: Face; acc: RGB }
+/** `n` is the live vertex count — faces are not all quads. A prism cap is its
+ *  whole footprint, which for an octagonal island or a rounded-corner unibody
+ *  is 8 or 16 points. */
+interface DrawRec { q: [number, number, number][]; n: number; z: number; zt: number; f: Face; acc: RGB }
 interface Sprite { x: number; y: number; z: number; r: number; c: RGB; a: number }
 
 function makeStars(): Star[] {
@@ -78,6 +81,7 @@ export function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Worl
       f.mid = [f.mid[0] + off[0], f.mid[1], f.mid[2] + off[1]];
     });
     b.labels.forEach(l => { l.p = [l.p[0] + off[0], l.p[1], l.p[2] + off[1]]; });
+    b.glyphs.forEach(g => { g.p = [g.p[0] + off[0], g.p[1], g.p[2] + off[1]]; });
     b.emitters.forEach(e => {
       const shift = (p: Vec3): Vec3 => [p[0] + off[0], p[1], p[2] + off[1]];
       if (e.kind === 'flow') { e.from = shift(e.from); e.to = shift(e.to); }
@@ -94,6 +98,15 @@ export function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Worl
   const GDIV = 4;
   let canFilter = true;
   try { gctx.filter = 'blur(2px)'; canFilter = gctx.filter !== 'none'; } catch { canFilter = false; }
+
+  // Path2D is transform-independent, so one object per mark serves both the
+  // main context and the glow buffer, for the life of the page.
+  const paths = new Map<string, Path2D>();
+  function path2d(d: string): Path2D {
+    let p = paths.get(d);
+    if (!p) { p = new Path2D(d); paths.set(d, p); }
+    return p;
+  }
 
   function resize(dprCap = 2) {
     DPR = Math.min(dprCap, window.devicePixelRatio || 1);
@@ -208,23 +221,30 @@ export function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Worl
               (f.mid[1] - eye[1]) * f.n[1] +
               (f.mid[2] - eye[2]) * f.n[2] >= 0) continue;
         }
-        const P = f.pts;
-        const a = px(P[0]); if (!a) continue;
-        const b2 = px(P[1]); if (!b2) continue;
-        const c2 = px(P[2]); if (!c2) continue;
-        const d2 = px(P[3]); if (!d2) continue;
+        const P = f.pts, np = P.length;
+        const rec = draw[drawN] || (draw[drawN] = { q: [], n: 0, z: 0, zt: 0, f, acc: isl.accent } as DrawRec);
+        let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
+        let depth = 0, ok = true;
+        for (let j = 0; j < np; j++) {
+          const p = px(P[j]);
+          if (!p) { ok = false; break; }
+          rec.q[j] = p;
+          if (p[0] < minx) minx = p[0];
+          if (p[0] > maxx) maxx = p[0];
+          if (p[1] < miny) miny = p[1];
+          if (p[1] > maxy) maxy = p[1];
+          depth += p[2];
+        }
+        if (!ok) continue;
         // cheap screen-space reject
-        const minx = Math.min(a[0], b2[0], c2[0], d2[0]); if (minx > W + 40) continue;
-        const maxx = Math.max(a[0], b2[0], c2[0], d2[0]); if (maxx < -40) continue;
-        const miny = Math.min(a[1], b2[1], c2[1], d2[1]); if (miny > H + 40) continue;
-        const maxy = Math.max(a[1], b2[1], c2[1], d2[1]); if (maxy < -40) continue;
+        if (minx > W + 40 || maxx < -40 || miny > H + 40 || maxy < -40) continue;
         // sub-pixel reject — a huge win when a whole island is far away
         if (maxx - minx < 0.7 && maxy - miny < 0.7) continue;
 
-        const depth = (a[2] + b2[2] + c2[2] + d2[2]) * 0.25;
-        const rec = draw[drawN] || (draw[drawN] = { q: [], z: 0, f, acc: isl.accent } as DrawRec);
-        rec.q[0] = a; rec.q[1] = b2; rec.q[2] = c2; rec.q[3] = d2;
-        rec.z = depth; rec.f = f; rec.acc = isl.accent;
+        rec.n = np;
+        // f.bias only shifts the sort key, never the geometry — see Face.bias.
+        rec.zt = depth / np;
+        rec.z = rec.zt + f.bias; rec.f = f; rec.acc = isl.accent;
         drawN++;
       }
     }
@@ -256,14 +276,13 @@ export function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Worl
         col = mixc(col, r.acc, fil * 0.22);
       }
       // distance fog
-      const fg = clamp((r.z - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1);
+      const fg = clamp((r.zt - FOG_NEAR) / (FOG_FAR - FOG_NEAR), 0, 1);
       if (fg > 0) col = mixc(col, FOG, fg * (f.emit > 0 ? 0.55 : 0.88));
 
+      const np = r.n;
       ctx.beginPath();
       ctx.moveTo(q[0][0], q[0][1]);
-      ctx.lineTo(q[1][0], q[1][1]);
-      ctx.lineTo(q[2][0], q[2][1]);
-      ctx.lineTo(q[3][0], q[3][1]);
+      for (let j = 1; j < np; j++) ctx.lineTo(q[j][0], q[j][1]);
       ctx.closePath();
       ctx.globalAlpha = f.alpha;
       ctx.fillStyle = css(col);
@@ -273,13 +292,69 @@ export function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Worl
         glowUsed = true;
         gctx.beginPath();
         gctx.moveTo(q[0][0] * gs, q[0][1] * gs);
-        gctx.lineTo(q[1][0] * gs, q[1][1] * gs);
-        gctx.lineTo(q[2][0] * gs, q[2][1] * gs);
-        gctx.lineTo(q[3][0] * gs, q[3][1] * gs);
+        for (let j = 1; j < np; j++) gctx.lineTo(q[j][0] * gs, q[j][1] * gs);
         gctx.closePath();
         gctx.globalAlpha = (1 - fg) * 0.85 * f.alpha;
         gctx.fillStyle = css(col);
         gctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    /* ---- brand marks ------------------------------------------------------
+       Real SVG artwork, filled as Path2D at the projected anchor and scaled by
+       1/z so it sits in the world's perspective. Drawn here — after the solid
+       fill but *before* the bloom composite — so a logo picks up the same halo
+       as every other emissive surface instead of reading as a flat sticker
+       pasted over the frame.
+
+       Each mark also claims its screen box in `placed`, which the signage pass
+       below tests against: with eight towers in one district the wordmarks and
+       the logos land at similar heights, and a logo with a label stamped
+       across it is worse than no label at all. The mark wins — it is the more
+       legible of the two at a glance.                                      */
+    const placed: [number, number, number, number][] = [];
+    for (let k = lo; k <= hi; k++) {
+      const own = k === cam.si;
+      for (const gl of islands[k].glyphs) {
+        const p = px(gl.p);
+        if (!p) continue;
+        const s = (gl.size * focal) / p[2] / 24;      // paths live on a 24-unit grid
+        const half = 12 * s;
+        if (half < 1.6) continue;                     // too small to read — skip
+        if (p[0] < -half || p[0] > W + half || p[1] < -half || p[1] > H + half) continue;
+
+        const fg = clamp((p[2] - FOG_NEAR) / (gl.max - FOG_NEAR), 0, 1);
+        let al = gl.alpha * (1 - fg);
+        if (!own) al *= 0.34;
+        if (al < 0.04) continue;
+        let e = gl.emit;
+        if (gl.pulse >= 0) e *= 0.66 + 0.34 * (0.5 + 0.5 * Math.sin(time * 0.001 * gl.speed + gl.pulse));
+
+        const col = mixc(mixc(FOG, gl.color, 0.55), mixc(gl.color, MAT.white, 0.45), clamp(e, 0, 1));
+        const d = path2d(gl.path);
+
+        ctx.save();
+        ctx.translate(p[0], p[1]);
+        ctx.scale(s, s);
+        ctx.translate(-12, -12);
+        ctx.globalAlpha = al;
+        ctx.fillStyle = css(col);
+        ctx.fill(d);
+        ctx.restore();
+
+        if (e > 0.3 && canFilter && fg < 0.9) {
+          glowUsed = true;
+          gctx.save();
+          gctx.translate(p[0] * gs, p[1] * gs);
+          gctx.scale(s * gs, s * gs);
+          gctx.translate(-12, -12);
+          gctx.globalAlpha = al * (1 - fg) * 0.9;
+          gctx.fillStyle = css(col);
+          gctx.fill(d);
+          gctx.restore();
+        }
+        if (own) placed.push([p[0] - half, p[1] - half, p[0] + half, p[1] + half]);
       }
     }
     ctx.globalAlpha = 1;
@@ -370,13 +445,12 @@ export function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Worl
         if (size < 7) continue;
         let al = clamp((p[2] - 24) / 36, 0, 1)                      // fade out up close
                * clamp(1 - (p[2] - 140) / (l.max - 140), 0, 1);     // and far away
-        if (!own) al *= 0.26;
+        if (!own) al *= 0.16;
         if (al < 0.07) continue;
         cand.push({ l, p, size, al });
       }
     }
     cand.sort((a, b) => a.p[2] - b.p[2]);     // nearest label wins a contested slot
-    const placed: [number, number, number, number][] = [];
     for (const { l, p, size, al } of cand) {
       const txt = l.upper ? l.text.toUpperCase() : l.text;
       ctx.font = `${l.weight} ${size.toFixed(1)}px ${l.mono ? FONT_MONO : FONT_DISPLAY}`;

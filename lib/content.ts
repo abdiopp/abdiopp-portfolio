@@ -76,7 +76,7 @@ export const projects: Project[] = [
     name: 'Big Bear Cabins',
     repo: 'big-bear-cabins-next',
     url: 'https://github.com/abdiopp/big-bear-cabins-next',
-    live: 'https://big-bear-cabins-next.vercel.app',
+    live: 'https://bigbearcabins.com/',
     blurb:
       'Cabin rental platform on Next.js, wired to the exclusive Streamline API so ' +
       'property management, reservations and live availability stay in sync.',

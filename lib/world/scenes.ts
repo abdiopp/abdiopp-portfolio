@@ -9,9 +9,11 @@
    ========================================================================== */
 
 import {
-  Builder, MAT, TAU, clamp, easeCam, island, lerp, mixc, ngon, rgb, tower,
-  type Vec2, type Vec3,
+  Builder, MAT, TAU, clamp, easeCam, island, lerp, mixc, ngon, rect, rgb,
+  roundRect, tower,
+  type ColorIn, type FaceOpts, type Vec2, type Vec3,
 } from './primitives';
+import { LOGOS } from './logos';
 
 /** What the scenes need from the content layer. Passed in rather than read off a
  *  global, so the world stays a pure module. */
@@ -20,83 +22,376 @@ export interface SceneContext {
   githubHandle: string;
 }
 
+/* ------------------------------------------------- props for the basecamp -- */
+
+/** Deterministic 0–1 from an integer — used to vary token widths on the screen
+ *  mock without dragging a PRNG through the builder. */
+const rnd = (i: number) => {
+  const s = Math.sin(i * 12.9898 + 4.137) * 43758.5453;
+  return s - Math.floor(s);
+};
+
+/** An open MacBook Pro.
+ *
+ *  Proportions are the 16-inch chassis — 35.57 x 24.81 x 1.68 cm — scaled to
+ *  `w`. What makes it read as *this* machine rather than a generic wedge is a
+ *  short list: rounded unibody corners, a lid that is edge-to-edge black glass
+ *  with a notch instead of a grey rectangle in a frame, the oversized trackpad,
+ *  and a hinge that opens a little past vertical.
+ *
+ *  The lid is modelled *closed* — lying flat over the base, the one orientation
+ *  in which `prism`'s Y extrusion gives it rounded corners on all four sides —
+ *  and then swung open about the hinge line by `group`. Everything on the
+ *  display is likewise authored flat, in a (u across, v down) display space, so
+ *  the screen mock is written as if it were a 2D layout and arrives on a tilted
+ *  plane for free.
+ */
+function macbook(b: Builder, x: number, y: number, z: number, w: number,
+                 o: { yaw?: number; lean?: number } = {}) {
+  const A = b.accent;
+  // Sort-depth budget for the machine's stacked flat surfaces, outermost first.
+  // Each step has to exceed the depth spread the camera's yaw induces across
+  // the surface below it — roughly a tenth of its width. See `Face.bias`.
+  const CHASSIS_BACK = 3.0, WELL_BACK = 1.2;
+  const BG_BACK = 2.2, PANE_BACK = 1.4, HILITE_BACK = 0.7;
+  const D = w * 0.697;               // 24.81 / 35.57
+  const TH = w * 0.047;              // 1.68 / 35.57 — closed thickness
+  const rr = w * 0.052;              // unibody corner radius
+  const lean = o.lean ?? 0.29;       // how far past vertical the lid opens
+
+  const footH = TH * 0.22;
+  const y0 = y + footH;              // underside of the bottom case
+  const deck = y0 + TH * 0.90;       // the keyboard deck
+  const hz = z + D / 2 - w * 0.012;  // hinge line, just inside the back edge
+  const hy = y0 + TH * 0.48;
+  const LT = TH * 0.62;              // the lid is thinner than the base
+
+  /** A horizontal quad, wound so its normal points up. */
+  const flat = (cx: number, cz: number, ww: number, dd: number, yy: number,
+                c: ColorIn, op: FaceOpts = {}) =>
+    b.quad(rect(cx, cz, ww, dd, 0).reverse().map(p => [p[0], yy, p[1]] as Vec3), c, op, null);
+
+  /* --- keyboard layout ---
+     Widths are the real ones, in standard key units; every row totals 14.5u,
+     which is what lines the two edges of the keyboard up. */
+  const kw = w * 0.755, kd = D * 0.425;
+  const kzBack = z + D * 0.40;
+  const ROWS: number[][] = [
+    [1.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.25],  // esc · F1–F12 · Touch ID
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5],      // ` 1–0 - = delete
+    [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],      // tab … \
+    [1.75, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.75],     // caps … return
+    [2.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.25],        // shift … shift
+    [1, 1, 1, 1.25, 5, 1.25, 1, 1, 1, 1],              // fn ctrl opt cmd space cmd opt ◀ ▲▼ ▶
+  ];
+  const u1 = kw * 0.0620;                              // one key unit
+  const rowGap = kd * 0.020;
+  const rowH = (kd - rowGap * 7) / 5.62;               // the function row is 0.62 high
+
+  interface Row { row: number[]; c: number; h: number; z0: number; z1: number }
+  const rows: Row[] = [];
+  {
+    let rz = kzBack - rowGap;
+    ROWS.forEach((row, ri) => {
+      const h = (ri === 0 ? 0.62 : 1) * rowH;
+      rows.push({ row, c: rz - h / 2, h, z0: rz - h - rowGap / 2, z1: rz + rowGap / 2 });
+      rz -= h + rowGap;
+    });
+  }
+  const tp0 = z - D * 0.442, tp1 = z - D * 0.094;       // the trackpad
+  const hgz = z + D / 2 - w * 0.038;                    // the hinge cover
+
+  b.group([x, y, z], o.yaw || 0, 0, () => {
+    /* --- feet --- */
+    ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as Vec2[]).forEach(s =>
+      b.prism(ngon(x + s[0] * w * 0.40, z + s[1] * D * 0.375, w * 0.026, 6),
+        y, y + footH, MAT.glass, { top: false, behind: CHASSIS_BACK }));
+
+    /* --- unibody bottom case --- */
+    b.prism(roundRect(x, z, w, D, rr), y0, deck, MAT.aluLo, {
+      topColor: mixc(MAT.alu, MAT.white, 0.08),
+      bottom: true, bottomColor: mixc(MAT.aluLo, MAT.dark, 0.45),
+      behind: CHASSIS_BACK,                // the palm rest sorts under its keys
+    });
+
+    /* --- keycaps, as one flat quad each ---
+       The deck is near edge-on from the interior camera, so extruded keys would
+       cost six faces apiece to render a sliver. The well behind them is tinted
+       toward the accent and lightly emissive — that halo leaking around the
+       keycaps is the backlight, and it is what stops the deck from reading as
+       a bare plate. */
+    const cap = mixc(MAT.glass, MAT.white, 0.05);
+    flat(x, (rows[5].z0 + rows[0].z1) / 2, kw + w * 0.028, rows[0].z1 - rows[5].z0,
+      deck + 0.006, mixc(MAT.glass, A, 0.16),
+      { emit: 0.30, pulse: 1.4, speed: 0.4, behind: WELL_BACK });
+    ([-1, 1] as const).forEach(sd =>                      // speaker grilles
+      flat(x + sd * (kw / 2 + w * 0.058), (rows[5].z0 + rows[0].z1) / 2,
+        w * 0.076, (rows[0].z1 - rows[5].z0) * 0.98, deck + 0.006,
+        mixc(MAT.aluLo, A, 0.12), { emit: 0.16, behind: WELL_BACK }));
+    rows.forEach(({ row, c, h }) => {
+      const g = (kw - 14.5 * u1) / (row.length + 1);
+      let kx = x - kw / 2 + g;
+      row.forEach((units, ki) => {
+        const kwid = units * u1;
+        if (ki === 8 && row.length === 10) {
+          // the arrow cluster splits into two half-height keys
+          flat(kx + kwid / 2, c + h * 0.22, kwid, h * 0.40, deck + 0.012, cap);
+          flat(kx + kwid / 2, c - h * 0.22, kwid, h * 0.40, deck + 0.012, cap);
+        } else {
+          flat(kx + kwid / 2, c, kwid, h * 0.86, deck + 0.012, cap);
+        }
+        kx += kwid + g;
+      });
+    });
+
+    /* --- trackpad and hinge cover --- */
+    flat(x, (tp0 + tp1) / 2, w * 0.455, tp1 - tp0, deck + 0.006,
+      mixc(MAT.aluLo, MAT.dark, 0.30), { behind: WELL_BACK });
+    flat(x, (tp0 + tp1) / 2, w * 0.435, (tp1 - tp0) * 0.95, deck + 0.012,
+      mixc(MAT.alu, MAT.dark, 0.42), { emit: 0.06 });
+    flat(x, hgz, w * 0.58, w * 0.046, deck + 0.012, MAT.glass);
+
+    /* ================================================================ lid == */
+    b.group([x, hy, hz], 0, Math.PI / 2 + lean, () => {
+      const lz = hz - D / 2;                       // lid centre, lying closed
+      b.prism(roundRect(x, lz, w, D, rr), hy, hy + LT, MAT.aluLo, {
+        topColor: MAT.alu,                         // the outer shell
+        bottom: true, bottomColor: MAT.glass,      // edge-to-edge display glass
+        behind: CHASSIS_BACK,                      // and sorts under the whole UI
+      });
+
+      const bx = w * 0.026, bt = D * 0.030, bc = D * 0.072;  // side / top / chin bezel
+      const dw = w - bx * 2, dd = D - bt - bc;
+      const zTop = lz - D / 2 + bt;
+      /** A rectangle in display space: u across (-0.5…0.5), v down (0…1).
+       *  Wound normal-down, which is toward the viewer once the lid is open;
+       *  `lift` pushes a layer out of the glass toward the camera. */
+      const scr = (u0: number, u2: number, v0: number, v2: number, lift: number,
+                   c: ColorIn, op: FaceOpts = {}) =>
+        b.quad(rect(x + ((u0 + u2) / 2) * dw, zTop + ((v0 + v2) / 2) * dd,
+          (u2 - u0) * dw, (v2 - v0) * dd, 0)
+          .map(p => [p[0], hy - lift, p[1]] as Vec3), c, op, null);
+
+      const TOK = [
+        mixc(A, MAT.white, 0.55),
+        mixc(rgb('#B388FF'), MAT.white, 0.14),
+        mixc(rgb('#7EE787'), MAT.white, 0.08),
+        mixc(rgb('#FFCB6B'), MAT.white, 0.08),
+        mixc(A, MAT.white, 0.04),
+      ];
+
+      // panes
+      scr(-0.5, 0.5, 0, 1, 0.02, rgb('#070C18'),
+        { emit: 0.30, pulse: 0.2, speed: 0.3, behind: BG_BACK });
+      scr(-0.5, 0.5, 0, 0.050, 0.04, mixc(rgb('#0E1526'), A, 0.12),
+        { emit: 0.44, behind: PANE_BACK });
+      scr(-0.5, -0.305, 0.050, 0.715, 0.04, rgb('#0A1120'),
+        { emit: 0.34, behind: PANE_BACK });
+      scr(-0.305, 0.5, 0.050, 0.098, 0.04, rgb('#0B1222'),
+        { emit: 0.38, behind: PANE_BACK });
+      scr(-0.305, 0.5, 0.715, 1, 0.04, rgb('#04060C'),
+        { emit: 0.22, behind: PANE_BACK });
+      scr(-0.305, 0.5, 0.715, 0.722, 0.06, A, { emit: 0.7, alpha: 0.5 });
+
+      // menu bar: the Apple mark, then a few menu titles
+      b.glyph(x - 0.462 * dw, hy - 0.34, zTop + 0.025 * dd, LOGOS.APPLE,
+        { size: dd * 0.038, color: mixc(A, MAT.white, 0.75), emit: 0.5, max: 260 });
+      [0.10, 0.075, 0.09, 0.07].reduce((u, wd) => {
+        scr(u, u + wd, 0.016, 0.034, 0.08, mixc(A, MAT.white, 0.35), { emit: 0.6, alpha: 0.8 });
+        return u + wd + 0.028;
+      }, -0.415);
+
+      // the notch, and the camera inside it
+      scr(-0.062, 0.062, 0, 0.040, 0.12, MAT.glass);
+      scr(-0.010, 0.010, 0.014, 0.026, 0.14, mixc(A, MAT.white, 0.2), { emit: 0.5, alpha: 0.7 });
+
+      // editor tabs — the third one is active
+      [0, 1, 2].forEach(t => {
+        const u = -0.288 + t * 0.155;
+        scr(u, u + 0.135, 0.060, 0.078, 0.32,
+          t === 2 ? mixc(A, MAT.white, 0.45) : mixc(A, MAT.dark, 0.55),
+          { emit: t === 2 ? 0.8 : 0.4, alpha: t === 2 ? 0.95 : 0.55 });
+        if (t === 2) scr(u, u + 0.135, 0.092, 0.098, 0.08, A, { emit: 1 });
+      });
+
+      // sidebar file tree
+      for (let i = 0; i < 11; i++) {
+        const v = 0.082 + i * 0.056;
+        const on = i === 5;
+        scr(-0.470, -0.470 + 0.09 + rnd(i * 3) * 0.11, v, v + 0.019, 0.32,
+          on ? mixc(A, MAT.white, 0.5) : mixc(A, MAT.white, 0.02),
+          { emit: on ? 0.85 : 0.42, alpha: on ? 1 : 0.6 });
+      }
+
+      // code — a gutter number, an indent, then a few syntax-coloured tokens
+      for (let i = 0; i < 15; i++) {
+        const v = 0.120 + i * 0.0385;
+        if (v > 0.690) break;
+        if (i === 6) scr(-0.300, 0.495, v - 0.006, v + 0.023, 0.06, A,
+          { emit: 0.45, alpha: 0.10, behind: HILITE_BACK });
+        scr(-0.288, -0.266, v, v + 0.016, 0.08, mixc(A, MAT.white, 0.1),
+          { emit: 0.35, alpha: 0.45 });
+        let u = -0.246 + [0, 0.032, 0.064, 0.096][Math.floor(rnd(i) * 4)];
+        const n = 2 + Math.floor(rnd(i + 40) * 3);
+        for (let t = 0; t < n; t++) {
+          const wd = 0.045 + rnd(i * 7 + t * 13) * 0.155;
+          if (u + wd > 0.470) break;
+          scr(u, u + wd, v, v + 0.016, 0.08, TOK[Math.floor(rnd(i * 5 + t * 3 + 1) * TOK.length)],
+            { emit: 0.78, alpha: 0.92 });
+          u += wd + 0.021;
+        }
+        if (i === 6) scr(u, u + 0.008, v - 0.004, v + 0.021, 0.10, mixc(A, MAT.white, 0.8),
+          { emit: 1, pulse: 0, speed: 2.6 });
+      }
+
+      // terminal pane
+      for (let i = 0; i < 4; i++) {
+        const v = 0.752 + i * 0.048;
+        scr(-0.288, -0.288 + 0.07 + rnd(i + 90) * 0.36, v, v + 0.015, 0.32,
+          mixc(A, MAT.white, i === 3 ? 0.45 : 0.12), { emit: 0.72, alpha: 0.85 });
+      }
+      scr(-0.288, -0.272, 0.944, 0.966, 0.08, mixc(A, MAT.white, 0.7),
+        { emit: 1, pulse: 0, speed: 2.4 });
+    });
+  });
+
+}
+
+/** A five-star office chair, rolled clear of the desk. */
+function chair(b: Builder, x: number, z: number, yaw: number) {
+  const A = b.accent;
+  b.group([x, 0, z], yaw, 0, () => {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * TAU + 0.32;
+      b.box(x + Math.cos(a) * 1.75, 0.22, z + Math.sin(a) * 1.75, 3.5, 0.10, 0.66,
+        MAT.bodyLo, { rot: a });
+      b.prism(ngon(x + Math.cos(a) * 3.3, z + Math.sin(a) * 3.3, 0.10, 6), 0, 0.5, MAT.dark);
+    }
+    b.box(x, 0.5, z, 0.75, 2.9, 0.75, MAT.metal);
+    b.prism(roundRect(x, z, 4.8, 4.5, 0.95), 3.4, 4.05, MAT.bodyLo,
+      { topColor: mixc(MAT.bodyLo, A, 0.10) });
+    b.group([x, 3.7, z + 2.05], 0, 0.19, () => {
+      // A mesh back, not a slab: two posts and a thin panel between them, so the
+      // chair reads as furniture in the corner of frame rather than as a second
+      // display parked behind the desk.
+      ([-1, 1] as const).forEach(sd =>
+        b.prism(roundRect(x + sd * 1.95, z + 2.15, 0.55, 0.5, 0.24), 3.7, 9.4, MAT.bodyLo,
+          { topColor: MAT.metal }));
+      b.prism(roundRect(x, z + 2.15, 4.4, 0.30, 0.15), 4.5, 9.1,
+        mixc(MAT.dark, A, 0.05));
+      b.prism(roundRect(x, z + 2.15, 4.4, 0.42, 0.20), 8.9, 9.4, MAT.bodyLo,
+        { topColor: MAT.metal });
+    });
+  });
+}
+
 /* ------------------------------------------------------------ the scenes -- */
 
-/** 1 — Base camp: the workstation this whole career runs out of. */
+/** 1 — Base camp: the workstation this whole career runs out of.
+ *
+ *  Both of this island's camera poses sit on the -Z side, so the whole desk is
+ *  laid out facing -Z: screen toward the lens, hinge and shelving away from it,
+ *  chair rolled out of the sight line rather than parked in it. */
 function sceneBasecamp(b: Builder) {
-  island(b, 23);
   const A = b.accent;
+  const DT = 1.15;                                   // desk surface height
+  const LZ = 1.9;                                    // the machine's z centre
+  const PZ = -3.0;                                   // where the desk clutter lives
 
-  // desk
-  b.box(0, 0, -1, 20, 0.9, 8, MAT.metal, { topColor: mixc(MAT.metal, MAT.white, 0.10) });
-  ([[-9, -4], [9, -4], [-9, 2], [9, 2]] as Vec2[]).forEach(p =>
-    b.box(p[0], -0.1, p[1] - 1, 0.7, 4.6, 0.7, MAT.bodyLo));
-  b.box(0, -3.6, -1, 20, 3.6, 8, MAT.dark, { top: false });
-  b.box(0, 0.9, -1.2, 19, 0.12, 7.4, A, { emit: 0.5, pulse: 1.1, speed: 0.6 });
+  /* --- the machine ---
+     Island deck, desk top, palm rest and display glass are four near-parallel
+     planes stacked within two units of each other, which is precisely the case
+     a painter's algorithm gets wrong. Each declares a sort-depth bias instead
+     of relying on how it happens to average out. */
+  macbook(b, 0, DT, LZ, 10.6, { yaw: -0.04 });
 
-  // three monitors on risers, angled into a cockpit
-  ([[-7.6, 0.42], [0, 0], [7.6, -0.42]] as Vec2[]).forEach((m, i) => {
-    const x = m[0], yaw = m[1];
-    b.box(x, 0.9, -2.6, 3.2, 0.7, 1.4, MAT.dark, { rot: yaw });
-    b.box(x, 1.6, -2.6, 0.6, 1.5, 0.6, MAT.metal, { rot: yaw });
-    b.box(x, 3.1, -2.6, 7.4, 4.6, 0.42, MAT.dark, { rot: yaw });
-    b.panel(x, 3.35, -2.4, 6.8, 4.1, yaw, mixc(A, MAT.white, i === 1 ? 0.35 : 0.12),
-      { emit: i === 1 ? 1 : 0.82, tilt: -0.06, pulse: i * 2.1, speed: 0.8 + i * 0.3 });
-  });
+  /* --- the desk, and the ground it stands on --- */
+  const DESK_BACK = 9;                   // sorts under everything sitting on it
+  b.prism(roundRect(0, 1.6, 24, 11.4, 0.9), DT - 0.36, DT, MAT.metal,
+    { topColor: mixc(MAT.metal, MAT.white, 0.12), behind: DESK_BACK });
+  island(b, 26, { motes: false });
+  b.motes([0, 2, 4], 22, { n: 8, rise: 22, r: 0.42 });
+  ([[-10.6, -3.1], [10.6, -3.1], [-10.6, 6.2], [10.6, 6.2]] as Vec2[]).forEach(p =>
+    b.box(p[0], 0, p[1], 0.62, DT - 0.36, 0.62, MAT.bodyLo, { behind: DESK_BACK }));
+  b.box(0, 0.24, 6.8, 22.6, DT - 0.62, 0.5, MAT.dark, { behind: DESK_BACK });
+  b.box(0, DT - 0.40, -3.95, 23, 0.13, 0.3, A,
+    { emit: 0.55, pulse: 1.1, speed: 0.5, behind: DESK_BACK });
 
-  // keyboard, mouse, mug, notebook
-  b.box(-0.4, 0.9, 1.6, 7.4, 0.32, 2.3, MAT.bodyLo);
-  b.box(-0.4, 1.22, 1.6, 7.0, 0.06, 2.0, A, { emit: 0.55, pulse: 3.0, speed: 1.1 });
-  b.box(5.2, 0.9, 1.7, 1.1, 0.4, 1.7, MAT.bodyLo);
-  b.box(-7.4, 0.9, 1.4, 1.5, 1.9, 1.5, mixc(MAT.white, A, 0.25));
-  b.box(8.4, 0.9, 1.2, 2.6, 0.3, 3.4, mixc(MAT.body, MAT.white, 0.14), { rot: 0.3 });
+  /* --- desk clutter, all of it in the band in front of the machine --- */
+  b.prism(roundRect(7.4, PZ, 1.5, 2.4, 0.6), DT, DT + 0.42, MAT.aluLo,
+    { topColor: MAT.alu });                                    // mouse
+  b.prism(ngon(-7.6, PZ, 0.95, 12), DT, DT + 1.9, mixc(MAT.white, A, 0.22),
+    { topColor: mixc(MAT.dark, A, 0.3) });                     // mug
+  b.box(-6.65, DT + 1.1, PZ, 0.75, 0.14, 0.5, mixc(MAT.white, A, 0.22));
+  b.prism(roundRect(-10.4, PZ, 1.5, 3.0, 0.08, -0.30), DT, DT + 0.14, MAT.glass);
+  b.quad(rect(-10.4, PZ, 1.25, 2.7, -0.30).reverse()
+    .map(p => [p[0], DT + 0.152, p[1]] as Vec3), mixc(A, MAT.white, 0.3),
+    { emit: 0.8, pulse: 1.7, speed: 0.7 }, null);              // phone
+  b.prism(roundRect(10.4, PZ, 2.6, 3.2, 0.22, 0.24), DT, DT + 0.34,
+    mixc(MAT.body, MAT.white, 0.16),
+    { topColor: mixc(MAT.body, MAT.white, 0.24) });            // notebook
+  b.box(10.4, DT + 0.34, PZ, 2.1, 0.06, 0.14, A, { rot: 0.24, emit: 0.6, pulse: 2.2 });
 
-  // chair
-  b.box(0, 0, 6.4, 4.2, 0.5, 4.0, MAT.bodyLo);
-  b.box(0, 0.5, 6.4, 3.8, 0.9, 3.6, MAT.metal, { topColor: mixc(MAT.metal, A, 0.2) });
-  b.box(0, 1.4, 8.2, 3.8, 5.2, 0.7, MAT.bodyLo);
-  b.box(0, 1.4, 8.55, 3.0, 4.6, 0.14, A, { emit: 0.45, pulse: 0.6, speed: 0.5 });
-  b.box(0, -0.6, 6.4, 0.6, 0.7, 0.6, MAT.dark);
+  /* --- lamp: base down in the clutter band, arm reaching back over the deck -- */
+  b.prism(ngon(-12.4, PZ, 1.05, 10), DT, DT + 0.3, MAT.metal);
+  b.box(-12.4, DT + 0.3, PZ, 0.08, 7.0, 0.08, MAT.metal);
+  b.box(-12.4, DT + 7.0, PZ + 1.7, 0.3, 0.3, 3.4, MAT.metal);
+  b.box(-11.6, DT + 6.2, PZ + 3.4, 2.9, 0.85, 1.9, MAT.metal, { rot: 0.22 });
+  b.quad(rect(-11.6, PZ + 3.4, 2.3, 1.3, 0.22).map(p => [p[0], DT + 6.18, p[1]] as Vec3),
+    mixc(A, MAT.white, 0.62), { emit: 1 }, null);
 
-  // desk lamp
-  b.box(-10.5, 0.9, -2.2, 1.6, 0.4, 1.6, MAT.metal);
-  b.box(-10.5, 1.3, -2.2, 0.34, 5.4, 0.34, MAT.metal);
-  b.box(-9.6, 6.4, -2.2, 2.6, 0.9, 1.8, MAT.metal, { rot: -0.35 });
-  b.box(-9.6, 6.3, -2.2, 2.0, 0.1, 1.3, mixc(A, MAT.white, 0.6), { emit: 1 });
+  /* --- chair, rolled clear so it frames the shot instead of blocking it --- */
+  chair(b, -16.5, -11.5, 2.2);
 
-  // plants + shelving, to make it a room rather than a prop
-  ([[-16, 5], [15.5, 6]] as Vec2[]).forEach((p, i) => {
-    b.box(p[0], 0, p[1], 2.6, 2.4, 2.6, MAT.bodyLo);
-    for (let k = 0; k < 5; k++) {
-      b.box(p[0] + Math.sin(k * 2.2) * 1.3, 2.4 + k * 0.85, p[1] + Math.cos(k * 1.7) * 1.3,
-        2.2 - k * 0.28, 0.9, 2.2 - k * 0.28, mixc(rgb('#2E6B57'), A, 0.12), { rot: k * 0.5 + i });
+  /* --- shelving either side, kept out of the centre so the screen stays clear */
+  ([-1, 1] as const).forEach(s => {
+    const sx = s * 17.6;
+    b.box(sx, 0, 10.6, 9.0, 1.0, 2.4, MAT.bodyLo);
+    for (let k = 0; k < 3; k++) {
+      const y = 2.2 + k * 3.1;
+      b.box(sx, y, 10.6, 8.6, 0.42, 2.2, MAT.bodyLo, { topColor: MAT.metal });
+      b.box(sx, y + 0.42, 9.6, 8.2, 0.12, 0.18, A, { emit: 0.75, pulse: k * 1.4 + s, speed: 0.5 });
+      for (let j = 0; j < 5; j++) {                            // books
+        const h = 1.5 + rnd(k * 9 + j + (s > 0 ? 31 : 0)) * 0.9;
+        b.box(sx - 3.4 + j * 1.5 + rnd(j * 4 + k) * 0.3, y + 0.42, 10.6,
+          0.5 + rnd(j + k * 3) * 0.5, h, 1.7,
+          mixc(MAT.body, A, 0.05 + rnd(j * 2 + k * 5) * 0.22));
+      }
     }
   });
-  b.box(-17.5, 0, -6, 1.0, 11, 9, MAT.bodyLo);
-  for (let k = 0; k < 4; k++) {
-    b.box(-17.0, 2 + k * 2.4, -6, 0.4, 0.22, 8.4, A, { emit: 0.7, pulse: k * 1.4, speed: 0.6 });
-  }
+
+  /* --- plants --- */
+  ([[-22.5, 3.5], [22.5, 4.5]] as Vec2[]).forEach((p, i) => {
+    b.prism(ngon(p[0], p[1], 1.6, 8), 0, 2.6, MAT.bodyLo, { topColor: MAT.dark });
+    for (let k = 0; k < 6; k++) {
+      b.box(p[0] + Math.sin(k * 2.2 + i) * 1.4, 2.6 + k * 0.95, p[1] + Math.cos(k * 1.7 + i) * 1.4,
+        2.6 - k * 0.3, 1.0, 2.6 - k * 0.3, mixc(rgb('#2E6B57'), A, 0.12), { rot: k * 0.5 + i });
+    }
+  });
 
   // The "many tabs open" halo, as outlined frames rather than filled quads — a
   // floating solid rectangle just reads as untextured geometry, but a thin lit
-  // border reads as a window.
+  // border reads as a window. Arced high and turned toward the lens.
   for (let k = 0; k < 5; k++) {
-    const a = -1.15 + k * 0.575;
-    const x = Math.cos(a) * 17.5, z = Math.sin(a) * 17.5 - 2;
-    const y = 9.5 + Math.sin(k * 1.9) * 2.8, yaw = -a + Math.PI / 2;
-    const w = 3.6, hh = 2.3, t = 0.16;
+    const t = (k - 2) / 2;                                     // -1 … 1
+    const x = t * 17.0, z = 7.5 + Math.abs(t) * 3.0;
+    const y = 16.2 - t * t * 2.2 + (k % 2) * 1.1;
+    const yaw = Math.PI + t * 0.34;
+    const w = 3.8, hh = 2.4, th = 0.17;
     const o = { emit: 0.85, alpha: 0.6, pulse: k * 1.3, speed: 0.45 };
-    b.panel(x, y, z, w, t, yaw, A, o);                 // bottom edge
-    b.panel(x, y + hh, z, w, t, yaw, A, o);            // top edge
-    b.panel(x + Math.cos(yaw) * w / 2, y, z - Math.sin(yaw) * w / 2, t, hh, yaw, A, o);
-    b.panel(x - Math.cos(yaw) * w / 2, y, z + Math.sin(yaw) * w / 2, t, hh, yaw, A, o);
-    b.panel(x, y + hh * 0.72, z, w, t * 0.8, yaw, A,   // title bar
+    b.panel(x, y, z, w, th, yaw, A, o);                        // bottom edge
+    b.panel(x, y + hh, z, w, th, yaw, A, o);                   // top edge
+    b.panel(x + Math.cos(yaw) * w / 2, y, z - Math.sin(yaw) * w / 2, th, hh, yaw, A, o);
+    b.panel(x - Math.cos(yaw) * w / 2, y, z + Math.sin(yaw) * w / 2, th, hh, yaw, A, o);
+    b.panel(x, y + hh * 0.72, z, w, th * 0.8, yaw, A,          // title bar
       { emit: 0.6, alpha: 0.4, pulse: k * 1.3 + 1, speed: 0.45 });
   }
 
-  b.label(0, 10.4, -2.6, 'ABDULLAH MURTAZA', { size: 15, color: mixc(A, MAT.white, 0.55), track: 0.22 });
-  b.label(0, 8.7, -2.6, 'team lead · full-stack & ai', { size: 9, upper: false, mono: true, track: 0.14 });
-  b.flow([-19, 1.4, 8], [19, 1.4, 8], { n: 4, speed: 0.22, r: 1.1 });
+  b.label(0, 12.4, 5.5, 'ABDULLAH MURTAZA',
+    { size: 15, color: mixc(A, MAT.white, 0.55), track: 0.22 });
+  b.label(0, 10.7, 5.5, 'team lead · full-stack & ai',
+    { size: 9, upper: false, mono: true, track: 0.14 });
+  b.flow([-20, 0.5, -8.5], [20, 0.5, -8.5], { n: 4, speed: 0.22, r: 1.1 });
   return b;
 }
 
@@ -104,19 +399,24 @@ function sceneBasecamp(b: Builder) {
 function sceneStack(b: Builder) {
   island(b, 31);
   const A = b.accent;
+  // Each tower flies its tool's actual mark — real SVG artwork rather than a
+  // box standing in for a logo, which is the difference between "a district"
+  // and "a district you can read at a glance".
   const specs = [
-    { n: 'React',        x: -14.5, z: -8,   h: 27, w: 6.4, d: 6.4, c: '#1F3550' },
-    { n: 'Next.js',      x: -5.5,  z: -12,  h: 33, w: 7.0, d: 7.0, c: '#161C30' },
-    { n: 'TypeScript',   x: 4.5,   z: -9,   h: 25, w: 6.2, d: 6.2, c: '#1B2647' },
-    { n: 'Node.js',      x: 14,    z: -12,  h: 22, w: 6.6, d: 6.6, c: '#1A2E33' },
-    { n: 'React Native', x: -16,   z: 6,    h: 17, w: 6.0, d: 6.0, c: '#1F3550' },
-    { n: 'Prisma',       x: -6,    z: 8.5,  h: 20, w: 5.6, d: 5.6, c: '#20223E' },
-    { n: 'Tailwind',     x: 4,     z: 7,    h: 15, w: 5.6, d: 5.6, c: '#17303E' },
-    { n: 'MongoDB',      x: 14.5,  z: 8,    h: 18, w: 6.0, d: 6.0, c: '#1B3327' },
+    { n: 'React',        g: LOGOS.REACT,      x: -14.5, z: -8,   h: 27, w: 6.4, d: 6.4, c: '#1F3550' },
+    { n: 'Next.js',      g: LOGOS.NEXTJS,     x: -5.5,  z: -12,  h: 33, w: 7.0, d: 7.0, c: '#161C30' },
+    { n: 'TypeScript',   g: LOGOS.TYPESCRIPT, x: 4.5,   z: -9,   h: 25, w: 6.2, d: 6.2, c: '#1B2647' },
+    { n: 'Node.js',      g: LOGOS.NODEJS,     x: 14,    z: -12,  h: 22, w: 6.6, d: 6.6, c: '#1A2E33' },
+    { n: 'React Native', g: LOGOS.REACT,       x: -16,   z: 6,    h: 17, w: 6.0, d: 6.0, c: '#1F3550' },
+    { n: 'Prisma',       g: LOGOS.PRISMA,     x: -6,    z: 8.5,  h: 20, w: 5.6, d: 5.6, c: '#20223E' },
+    { n: 'Tailwind',     g: LOGOS.TAILWIND,   x: 4,     z: 7,    h: 15, w: 5.6, d: 5.6, c: '#17303E' },
+    { n: 'MongoDB',      g: LOGOS.MONGODB,    x: 14.5,  z: 8,    h: 18, w: 6.0, d: 6.0, c: '#1B3327' },
   ];
   specs.forEach((s, i) => {
     tower(b, s.x, s.z, s.w, s.h, s.d, { color: s.c, rot: (i % 3 - 1) * 0.16, mast: 1.8 + (i % 3) });
-    b.label(s.x, s.h + 5.6, s.z, s.n, { size: 11.5, track: 0.14 });
+    b.glyph(s.x, s.h + 6.6, s.z, s.g,
+      { size: 4.0, color: mixc(A, MAT.white, 0.45), emit: 0.95, pulse: i * 0.8, speed: 0.5 });
+    b.label(s.x, s.h + 12.6, s.z, s.n, { size: 11, track: 0.14 });
     // plinth
     b.box(s.x, 0.06, s.z, s.w + 2.6, 0.35, s.d + 2.6, mixc(MAT.deckTop, A, 0.16),
       { rot: (i % 3 - 1) * 0.16 });
@@ -133,7 +433,7 @@ function sceneStack(b: Builder) {
     b.box(Math.cos(a) * 27, 30 + Math.sin(a * 2) * 1.6, Math.sin(a) * 27, 1.3, 0.4, 1.3, A,
       { emit: 0.75, pulse: k * 0.4, speed: 1.0, rot: a });
   }
-  b.label(0, 41, 0, 'THE STACK', { size: 13, color: mixc(A, MAT.white, 0.5), track: 0.3 });
+  b.label(0, 52, 0, 'THE STACK', { size: 13, color: mixc(A, MAT.white, 0.5), track: 0.3 });
   return b;
 }
 
@@ -215,7 +515,9 @@ function sceneWorks(b: Builder, ctx: SceneContext) {
   b.box(0, 11.5, 0, 5.6, 0.6, 5.6, MAT.bodyLo);
   b.panel(0, 12.2, 0, 5.0, 3.0, 0, mixc(A, MAT.white, 0.4), { emit: 1, pulse: 0.5, speed: 0.5 });
   b.panel(0, 12.2, 0, 5.0, 3.0, Math.PI, mixc(A, MAT.white, 0.4), { emit: 1, pulse: 2.5, speed: 0.5 });
-  b.label(0, 17.4, 0, `github.com/${ctx.githubHandle}`,
+  b.glyph(0, 13.7, 0, LOGOS.GITHUB,
+    { size: 3.2, color: mixc(A, MAT.white, 0.6), emit: 1, pulse: 0.5, speed: 0.5 });
+  b.label(0, 19.2, 0, `github.com/${ctx.githubHandle}`,
     { size: 10, mono: true, upper: false, track: 0.1 });
 
   // traffic between the plaza and each pavilion
@@ -285,7 +587,8 @@ function sceneForge(b: Builder) {
 
 /** 6 — The signal: the contact beacon, and the end of the flight. */
 function sceneSignal(b: Builder) {
-  island(b, 26);
+  island(b, 26, { motes: false });
+  b.motes([0, 2, 4], 22, { n: 8, rise: 22, r: 0.42 });
   const A = b.accent;
 
   // the tower, tapering in six stages
@@ -312,14 +615,17 @@ function sceneSignal(b: Builder) {
   b.orbit([0, y + 3.0, 0], 25, { n: 2, r: 1.5, speed: 0.30 });
 
   // three plinths — email, github, linkedin
-  ['EMAIL', 'GITHUB', 'LINKEDIN'].forEach((m, i) => {
+  ([['EMAIL', LOGOS.GMAIL], ['GITHUB', LOGOS.GITHUB], ['LINKEDIN', LOGOS.LINKEDIN]] as const)
+    .forEach(([m, g], i) => {
     const a = (i / 3) * TAU + Math.PI / 2;
     const x = Math.cos(a) * 17, z = Math.sin(a) * 17;
     b.box(x, 0, z, 5.4, 3.4, 5.4, MAT.bodyLo, { rot: -a });
-    b.box(x, 3.4, z, 6.0, 0.4, 6.0, MAT.metal, { rot: -a });
-    b.panel(x, 4.2, z, 4.6, 2.8, -a + Math.PI / 2, mixc(A, MAT.white, 0.3),
-      { emit: 0.95, pulse: i * 2, speed: 0.7 });
-    b.label(x, 8.4, z, m, { size: 9.5, track: 0.18 });
+    b.box(x, 3.4, z, 6.0, 0.4, 6.0, MAT.metal, { rot: -a, behind: 3 });
+    b.box(x, 3.8, z, 4.8, 0.14, 4.8, mixc(A, MAT.white, 0.3),
+      { rot: -a, emit: 0.95, pulse: i * 2, speed: 0.7 });
+    b.glyph(x, 5.5, z, g,
+      { size: 2.6, color: mixc(A, MAT.white, 0.75), emit: 1, pulse: i * 2, speed: 0.7 });
+    b.label(x, 10.4, z, m, { size: 9.5, track: 0.18 });
     b.flow([x * 0.42, 2.0, z * 0.42], [x * 0.92, 2.6, z * 0.92],
       { n: 3, speed: 0.24, r: 0.9, phase: i * 0.3 });
   });
@@ -363,7 +669,7 @@ export interface Segment {
  *  `approach` (high, outside, whole diorama in frame) and `interior` (low,
  *  close, inside the scene). Yaw varies per scene so no two dives feel alike. */
 export const PLACES = [
-  { at: [0, 0],     approach: { d: 82,  yaw: -0.62, pitch: 0.58, ty: 6 },  interior: { d: 30, yaw: -0.10, pitch: 0.17, ty: 5.4, tx: 0, tz: 1.5 } },
+  { at: [0, 0],     approach: { d: 76,  yaw: -0.62, pitch: 0.56, ty: 7 },  interior: { d: 23, yaw: -0.09, pitch: 0.23, ty: 5.2, tx: 0, tz: 1.8 } },
   { at: [168, -70], approach: { d: 106, yaw: 0.74,  pitch: 0.56, ty: 14 }, interior: { d: 50, yaw: 0.22,  pitch: 0.22, ty: 18,  tx: 0, tz: 0 } },
   { at: [352, 24],  approach: { d: 96,  yaw: -0.48, pitch: 0.60, ty: 10 }, interior: { d: 44, yaw: 0.55,  pitch: 0.24, ty: 13,  tx: 2, tz: 2 } },
   { at: [528, -78], approach: { d: 108, yaw: 0.66,  pitch: 0.62, ty: 10 }, interior: { d: 42, yaw: -0.34, pitch: 0.20, ty: 9,   tx: 0, tz: 0 } },
