@@ -48,7 +48,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    // splashBoot below stamps data-splash on this element before React hydrates,
+    // so the server HTML and the client tree legitimately disagree on one attribute.
+    // Suppressing here is the documented escape hatch for exactly that — it is
+    // shallow, so any real mismatch inside <body> is still reported.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${display.variable} ${body.variable} ${mono.variable}`}
+    >
       <body>
         {/* First thing in the body so it settles whether the splash opens before
             anything paints — React hydrates far too late to make that call. */}

@@ -125,7 +125,12 @@ export default function Flight({
           >
             <span className="fl-copy__num">{pad(i + 1)} <i>/</i> {pad(scenes.length)}</span>
             <span className="fl-copy__eyebrow">{s.eyebrow}</span>
-            <h2 className="fl-copy__title">{s.title}</h2>
+            {/* The first scene's title is the page's name, so it carries the only
+                h1; the rest stay h2 under it. Styling keys off the class, not the
+                tag, so the two render identically. */}
+            {i === 0
+              ? <h1 className="fl-copy__title">{s.title}</h1>
+              : <h2 className="fl-copy__title">{s.title}</h2>}
             <p className="fl-copy__body">{s.body}</p>
             {s.tags.length > 0 && (
               <ul className="fl-copy__tags">

@@ -442,7 +442,7 @@ function sceneClimb(b: Builder) {
   island(b, 29);
   const A = b.accent;
   const tiers = [
-    { t: 'Full-stack Developer', y: 'Aug 2023', r: 15.0, h: 3.4 },
+    { t: 'Trainee Developer',    y: 'Aug 2023', r: 15.0, h: 3.4 },
     { t: 'Junior Developer',     y: 'Jan 2024', r: 12.6, h: 3.4 },
     { t: 'Software Engineer',    y: 'Feb 2025', r: 10.2, h: 3.4 },
     { t: 'Senior Engineer',      y: 'Feb 2026', r: 7.8,  h: 3.4 },

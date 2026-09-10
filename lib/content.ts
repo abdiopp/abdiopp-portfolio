@@ -131,18 +131,6 @@ export const projects: Project[] = [
     tech: ['Python', 'macOS', 'Windows'],
     short: 'App Cycler',
   },
-  {
-    name: 'Attendance Management System',
-    repo: 'ams-backend · private',
-    blurb:
-      'REST API running class attendance end to end — teachers, students, weekly ' +
-      'timetables and per-session registers keyed by a composite event id, so a class ' +
-      'can be marked and re-marked without ever duplicating a register. Ships an ' +
-      'image-to-timetable import that reads a photographed timetable straight into ' +
-      'structured slots.',
-    tech: ['Node.js', 'Express', 'MongoDB', 'JWT', 'Gemini'],
-    short: 'AMS',
-  },
 ];
 
 /** Repos the yard scene links out to, keyed by the pill label. Private projects
@@ -178,9 +166,10 @@ export const scenes: Scene[] = [
     eyebrow: 'Techloset · 2023 → now',
     title: 'Five titles, one company.',
     body:
-      'Full-stack developer in 2023. Junior developer in 2024. Software engineer in ' +
-      '2025. Senior in early 2026. Team lead since July. The scope grew with the title.',
-    tags: ['Full-stack Dev → Team Lead', 'Enterprise LMS', 'Building leadership teams'],
+      'Trainee in 2023. Junior developer in 2024. Software engineer in 2025. Senior in ' +
+      'early 2026. Team lead since July, now leading six engineers. The scope grew with ' +
+      'the title.',
+    tags: ['Trainee → Team Lead', 'Six engineers', 'Enterprise LMS'],
     scroll: 1.45, linger: 0.40,
   },
   {
@@ -227,7 +216,7 @@ export const experience: Role[] = [
     org: 'Techloset', role: 'Team Lead', period: 'Jul 2026 — Present',
     place: 'Faisalabad', current: true,
     points: [
-      'Leading the engineering team and its technical direction across full-stack, mobile and AI workstreams.',
+      'Leading a team of six engineers and its technical direction across full-stack, mobile and AI workstreams.',
       'Directing technical architecture and infrastructure planning across concurrent client projects — enterprise LMS platforms, AI integrations and SaaS products.',
       'Overseeing deployment lifecycles delivered through CI/CD pipelines across AWS and Azure.',
       'Growing engineering leadership capacity and mentoring developers across the stack.',
@@ -259,17 +248,24 @@ export const experience: Role[] = [
   },
   {
     org: 'Techloset', role: 'Junior Developer', period: 'Jan 2024 — Feb 2025',
-    place: 'Faisalabad, Punjab, Pakistan', points: [],
+    place: 'Faisalabad, Punjab, Pakistan',
+    points: [
+      'Contributed to MERN-stack client projects across the full development lifecycle.',
+    ],
   },
   {
-    org: 'Techloset', role: 'Full-stack Developer', period: 'Aug 2023 — Jan 2024',
-    place: 'Faisalabad, Punjab, Pakistan', points: [],
+    org: 'Techloset', role: 'Trainee Developer', period: 'Aug 2023 — Jan 2024',
+    place: 'Faisalabad, Punjab, Pakistan',
+    points: [
+      'Trainee placement, run concurrently with the SEERAHT internship below.',
+    ],
   },
   {
     org: 'SEERAHT', role: 'Intern', period: 'Feb 2023 — Jan 2024',
     place: 'Faisalabad',
     points: [
-      'Completed hands-on training in full-stack development, working on real-world projects and strengthening JavaScript, React, Next.js, Node.js, databases, APIs and version control.',
+      'Hands-on training in full-stack development on real-world projects — JavaScript, React, Next.js, Node.js, databases, APIs and version control.',
+      'Ran concurrently with the Techloset trainee placement from August 2023.',
     ],
   },
 ];
