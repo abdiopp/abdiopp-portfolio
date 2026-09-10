@@ -4,7 +4,7 @@ import { person } from '@/lib/content';
 import { body, display, mono } from './fonts';
 import './globals.css';
 
-const SITE = 'https://abdullahmurtaza.dev';   // update when the domain is live
+const SITE = 'https://www.abdullahmurtaza.site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

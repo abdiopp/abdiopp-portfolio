@@ -135,6 +135,7 @@ export default function Ground() {
             <div className="contact__row">
               <a href={person.github} target="_blank" rel="noopener noreferrer">GitHub<i>↗</i></a>
               <a href={person.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn<i>↗</i></a>
+              <a href="/Abdullah-Murtaza-Resume.pdf" target="_blank" rel="noopener noreferrer">Résumé<i>↗</i></a>
               <a href={`tel:${person.phoneHref}`}>{person.phone}</a>
             </div>
           </div>

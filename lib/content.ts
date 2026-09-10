@@ -62,12 +62,13 @@ export const person: Person = {
   github: 'https://github.com/abdiopp',
   githubHandle: 'abdiopp',
   linkedin: 'https://www.linkedin.com/in/abdullah-murtaza-7bb409177',
-  site: 'https://abdi-portfolio.web.app/',
+  site: 'https://www.abdullahmurtaza.site',
   summary:
-    'Senior software developer and top-rated freelancer with extensive experience in ' +
-    'high-level full-stack engineering and cloud DevOps. I specialise in architecting ' +
-    'scalable MERN ecosystems, enterprise-grade LMS platforms, and custom AI integrations ' +
-    'involving local LLMs — with deployment lifecycles automated through CI/CD pipelines ' +
+    'Team lead and full-stack + AI engineer with 3+ years of experience across engineering ' +
+    'and cloud DevOps. Currently leading the engineering team at Techloset — its technical ' +
+    'direction, architecture and delivery. I specialise in architecting scalable MERN ' +
+    'ecosystems, enterprise-grade LMS platforms, and custom AI integrations involving ' +
+    'local LLMs — with deployment lifecycles automated through CI/CD pipelines ' +
     'across AWS and Azure.',
 };
 
@@ -225,7 +226,12 @@ export const experience: Role[] = [
   {
     org: 'Techloset', role: 'Team Lead', period: 'Jul 2026 — Present',
     place: 'Faisalabad', current: true,
-    points: ['Leading the engineering team and its technical direction.'],
+    points: [
+      'Leading the engineering team and its technical direction across full-stack, mobile and AI workstreams.',
+      'Directing technical architecture and infrastructure planning across concurrent client projects — enterprise LMS platforms, AI integrations and SaaS products.',
+      'Overseeing deployment lifecycles delivered through CI/CD pipelines across AWS and Azure.',
+      'Growing engineering leadership capacity and mentoring developers across the stack.',
+    ],
   },
   {
     org: 'Techloset', role: 'Senior Software Engineer', period: 'Feb 2026 — Apr 2026',
