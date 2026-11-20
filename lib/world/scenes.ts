@@ -437,12 +437,13 @@ function sceneStack(b: Builder) {
   return b;
 }
 
-/** 3 — The climb: five Techloset titles as five ascending tiers. */
+/** 3 — The climb: five Techloset titles as five ascending tiers, with the summit
+ *  beacon standing for the move to Professional Ways in Nov 2026. */
 function sceneClimb(b: Builder) {
   island(b, 29);
   const A = b.accent;
   const tiers = [
-    { t: 'Trainee Developer',    y: 'Aug 2023', r: 15.0, h: 3.4 },
+    { t: 'Full-Stack Dev',       y: 'Aug 2023', r: 15.0, h: 3.4 },
     { t: 'Junior Developer',     y: 'Jan 2024', r: 12.6, h: 3.4 },
     { t: 'Software Engineer',    y: 'Feb 2025', r: 10.2, h: 3.4 },
     { t: 'Senior Engineer',      y: 'Feb 2026', r: 7.8,  h: 3.4 },
@@ -481,7 +482,15 @@ function sceneClimb(b: Builder) {
   b.label(-21, 8.4, 12, 'SEERAHT · 2023', { size: 8.5, mono: true, track: 0.14 });
   b.flow([-18.4, 2.4, 10.4], [-5.6, 2.0, 4.2], { n: 4, speed: 0.20, r: 0.9 });
 
-  b.label(0, y + 12.5, 0, 'TECHLOSET', { size: 13, color: mixc(A, MAT.white, 0.5), track: 0.3 });
+  // Both labels are drawn in world space, so a narrow viewport renders the world
+  // smaller and these take up proportionally more width. "PROFESSIONAL WAYS" is
+  // ~2.5x the width of the old "TECHLOSET", hence the smaller sizes and tracking.
+  b.label(0, y + 10.4, 0, 'TECHLOSET · 2023–2026', {
+    size: 8.5, color: mixc(A, MAT.white, 0.45), track: 0.18,
+  });
+  b.label(0, y + 13.4, 0, 'PROFESSIONAL WAYS · NOW', {
+    size: 9.5, color: mixc(A, MAT.white, 0.75), track: 0.16,
+  });
   return b;
 }
 

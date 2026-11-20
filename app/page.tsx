@@ -15,7 +15,7 @@ function StructuredData() {
     url: person.site,
     sameAs: [person.github, person.linkedin],
     address: { '@type': 'PostalAddress', addressLocality: 'Faisalabad', addressRegion: 'Punjab', addressCountry: 'PK' },
-    worksFor: { '@type': 'Organization', name: 'Techloset' },
+    worksFor: { '@type': 'Organization', name: 'Professional Ways' },
     alumniOf: [
       { '@type': 'CollegeOrUniversity', name: 'Virtual University of Pakistan' },
       { '@type': 'EducationalOrganization', name: 'Saylani Mass I.T Training (S.M.I.T)' },

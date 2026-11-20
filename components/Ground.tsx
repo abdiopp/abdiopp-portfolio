@@ -35,7 +35,7 @@ export default function Ground() {
         <div className="about">
           <p className="about__lede">{person.summary}</p>
           <dl className="about__facts">
-            <div><dt>Now</dt><dd>Team Lead at Techloset</dd></div>
+            <div><dt>Now</dt><dd>Team Lead at Professional Ways · Remote</dd></div>
             <div><dt>Based in</dt><dd>{person.location}</dd></div>
             <div><dt>Focus</dt><dd>Full-stack · AI integration · Cloud DevOps</dd></div>
             <div><dt>Top skills</dt><dd>{topSkills.join(' · ')}</dd></div>
@@ -43,7 +43,7 @@ export default function Ground() {
         </div>
       </Section>
 
-      <Section id="experience" kicker="Experience" title="Three years, one steady climb.">
+      <Section id="experience" kicker="Experience" title="Four years, one steady climb.">
         <ol className="tl">
           {experience.map((e, i) => (
             <li key={`${e.org}-${e.role}-${i}`} className={'tl__item' + (e.current ? ' is-current' : '')}>
@@ -116,7 +116,13 @@ export default function Ground() {
           <div className="two__col">
             <h3 className="two__h">Certifications</h3>
             <ul className="plain">
-              {certifications.map(c => <li key={c}><strong>{c}</strong></li>)}
+              {certifications.map(c => (
+                <li key={c.name}>
+                  <strong>{c.name}</strong>
+                  <span>{c.issuer}</span>
+                  <em>{c.date}</em>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

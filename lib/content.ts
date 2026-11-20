@@ -50,6 +50,7 @@ export interface Project {
 
 export interface SkillGroup { title: string; items: string[] }
 export interface School { org: string; detail: string; period: string }
+export interface Certification { name: string; issuer: string; date: string }
 
 export const person: Person = {
   name: 'Abdullah Murtaza',
@@ -64,12 +65,14 @@ export const person: Person = {
   linkedin: 'https://www.linkedin.com/in/abdullah-murtaza-7bb409177',
   site: 'https://www.abdullahmurtaza.site',
   summary:
-    'Team lead and full-stack + AI engineer with 3+ years of experience across engineering ' +
-    'and cloud DevOps. Currently leading the engineering team at Techloset — its technical ' +
-    'direction, architecture and delivery. I specialise in architecting scalable MERN ' +
-    'ecosystems, enterprise-grade LMS platforms, and custom AI integrations involving ' +
-    'local LLMs — with deployment lifecycles automated through CI/CD pipelines ' +
-    'across AWS and Azure.',
+    'Team lead and full-stack + AI engineer with nearly four years across engineering and ' +
+    'cloud DevOps. Now leading a fully remote engineering team at Professional Ways, after ' +
+    'rising through five titles at Techloset — intern to team lead running six engineers. ' +
+    'I specialise in architecting scalable MERN ecosystems, enterprise-grade LMS platforms, ' +
+    'and custom AI integrations involving local LLMs — with deployment lifecycles automated ' +
+    'through CI/CD pipelines across AWS and Azure. I have delivered remotely for Swedish ' +
+    'and US clients across a four- to ten-hour time difference, and I take models all the ' +
+    'way onto the device when that is where they belong.',
 };
 
 export const projects: Project[] = [
@@ -98,6 +101,38 @@ export const projects: Project[] = [
     short: 'Quote agent',
   },
   {
+    name: 'PoultryFast',
+    repo: 'poultryfast-monorepo',
+    blurb:
+      'Lead developer on a five-service platform for poultry operations: an Express ' +
+      'and PostgreSQL API backed by PL/pgSQL functions, an offline-first Expo app ' +
+      'using TanStack Query persistence and network-aware sync, plus admin, web and ' +
+      'marketing surfaces — with WhatsApp messaging and Arabic localisation.',
+    tech: ['TypeScript', 'Expo', 'Express', 'PostgreSQL', 'PL/pgSQL'],
+    short: 'PoultryFast',
+  },
+  {
+    name: 'Atlas Bil',
+    repo: 'atlasbil-next',
+    live: 'https://atlasbil.se',
+    blurb:
+      'Rebuild of a Swedish car dealership’s site on Next.js 16 with a PostgreSQL ' +
+      'backend — delivered remotely across a four-hour time difference.',
+    tech: ['Next.js 16', 'TypeScript', 'PostgreSQL'],
+    short: 'Atlas Bil',
+  },
+  {
+    name: 'On-device Attendance Recognition',
+    repo: 'FaceRecognitionApp',
+    blurb:
+      'Android app that registers a student once and then recognises them in real time ' +
+      'through the phone camera. Runs FaceNet TensorFlow Lite models on-device for ' +
+      '512-dimension embeddings, with mask detection and Firestore sync — shipped in ' +
+      'both float and int8-quantized variants.',
+    tech: ['Kotlin', 'TensorFlow Lite', 'FaceNet', 'Firestore'],
+    short: 'Attendance AI',
+  },
+  {
     name: 'Virtual Try-On AI',
     repo: 'virtual-tryon-ai-mvp',
     url: 'https://github.com/abdiopp/virtual-tryon-ai-mvp',
@@ -121,15 +156,24 @@ export const projects: Project[] = [
     short: 'XDM Next',
   },
   {
-    name: 'App Cycler',
-    repo: 'auto-cycler',
-    url: 'https://github.com/abdiopp/auto-cycler',
+    name: 'RKT Store',
+    repo: 'RKT-Server',
+    url: 'https://github.com/BaigInBinary/RKT-Server',
     blurb:
-      'Desktop app that rotates focus through the windows you pick and steps through ' +
-      'each one’s tabs on a timer. Built for wall displays, NOC screens and demo ' +
-      'loops — all configured in the GUI, with a global kill-switch hotkey.',
-    tech: ['Python', 'macOS', 'Windows'],
-    short: 'App Cycler',
+      'Full-stack e-commerce platform for premium tech accessories and gadgets, built ' +
+      'for a fast and scalable shopping experience — modern storefront with a custom ' +
+      'admin back office.',
+    tech: ['Next.js', 'React', 'TypeScript'],
+    short: 'RKT Store',
+  },
+  {
+    name: 'ChemVault',
+    repo: 'ChemVault',
+    blurb:
+      'Electronic lab notebook, chemical inventory (LIMS) and password-protected share ' +
+      'portal for research teams, built on Next.js 16, Prisma 7 and PostgreSQL.',
+    tech: ['Next.js 16', 'Prisma 7', 'PostgreSQL', 'TypeScript'],
+    short: 'ChemVault',
   },
 ];
 
@@ -148,7 +192,7 @@ export const scenes: Scene[] = [
       'Team lead and full-stack + AI engineer. I architect MERN ecosystems, ' +
       'enterprise LMS platforms and local-LLM integrations — then ship them ' +
       'through CI/CD across AWS and Azure.',
-    tags: ['Team Lead @ Techloset', 'Full-stack', 'AI engineering', 'Cloud DevOps'],
+    tags: ['Team Lead @ Professional Ways', 'Full-stack', 'AI engineering', 'Cloud DevOps'],
     scroll: 1.55, linger: 0.42,
   },
   {
@@ -157,19 +201,21 @@ export const scenes: Scene[] = [
     title: 'A stack I know down to the metal.',
     body:
       'React and Next.js at the front, Node and TypeScript behind it, Prisma over ' +
-      'Postgres and Mongo, React Native when it has to live in a pocket.',
-    tags: ['React', 'Next.js', 'TypeScript', 'Node.js', 'React Native', 'Prisma', 'Tailwind', 'MongoDB'],
+      'Postgres and Mongo, React Native or Flutter when it has to live in a pocket — ' +
+      'Kotlin when the model has to run on the device itself, Rust when it has to be ' +
+      'a real desktop app.',
+    tags: ['React', 'Next.js', 'TypeScript', 'Node.js', 'React Native', 'Flutter', 'Kotlin', 'Rust'],
     scroll: 1.35, linger: 0.34,
   },
   {
     id: 'climb', label: 'The climb', accent: '#34D399',
-    eyebrow: 'Techloset · 2023 → now',
-    title: 'Five titles, one company.',
+    eyebrow: 'Techloset · 2023 → 2026',
+    title: 'Five titles, three years.',
     body:
-      'Trainee in 2023. Junior developer in 2024. Software engineer in 2025. Senior in ' +
-      'early 2026. Team lead since July, now leading six engineers. The scope grew with ' +
-      'the title.',
-    tags: ['Trainee → Team Lead', 'Six engineers', 'Enterprise LMS'],
+      'Intern in 2023. Junior developer in 2024. Software engineer in 2025. Senior in ' +
+      'early 2026. Team lead by July, running six engineers. In November I took the ' +
+      'same role — fully remote — at Professional Ways.',
+    tags: ['Intern → Team Lead', 'Six engineers', 'Now remote'],
     scroll: 1.45, linger: 0.40,
   },
   {
@@ -177,9 +223,10 @@ export const scenes: Scene[] = [
     eyebrow: 'Selected work',
     title: 'Things that are actually running.',
     body:
-      'A Streamline-integrated cabin platform, an AI speed-to-quote agent, a two-stage ' +
-      'virtual try-on backend, a Rust download engine. All public, all on GitHub.',
-    tags: ['Cabins', 'Quote agent', 'Try-on AI', 'XDM Next'].map(
+      'A Streamline-integrated cabin platform, an AI speed-to-quote agent, a Next.js ' +
+      'rebuild for a Swedish dealership, on-device face recognition in Kotlin, a Rust ' +
+      'download engine.',
+    tags: ['Cabins', 'Quote agent', 'XDM Next', 'Try-on AI'].map(
       label => ({ label, href: repoByShort.get(label)! })
     ),
     scroll: 1.6, linger: 0.46,
@@ -213,13 +260,29 @@ export const scenes: Scene[] = [
 
 export const experience: Role[] = [
   {
-    org: 'Techloset', role: 'Team Lead', period: 'Jul 2026 — Present',
-    place: 'Faisalabad', current: true,
+    org: 'Professional Ways', role: 'Team Lead', period: 'Nov 2026 — Present',
+    place: 'Pakistan · Remote', current: true,
     points: [
-      'Leading a team of six engineers and its technical direction across full-stack, mobile and AI workstreams.',
-      'Directing technical architecture and infrastructure planning across concurrent client projects — enterprise LMS platforms, AI integrations and SaaS products.',
-      'Overseeing deployment lifecycles delivered through CI/CD pipelines across AWS and Azure.',
-      'Growing engineering leadership capacity and mentoring developers across the stack.',
+      'Leading the engineering team and its technical direction across mobile and full-stack delivery, fully remote from day one.',
+      'Setting architecture and delivery standards for mobile application development, carrying forward the CI/CD and review practice built at Techloset.',
+    ],
+  },
+  {
+    org: 'Techloset', role: 'Team Lead', period: 'Jul 2026 — Nov 2026',
+    place: 'Faisalabad',
+    points: [
+      'Led a team of six engineers and its technical direction across full-stack, mobile and AI workstreams.',
+      'Directed technical architecture and infrastructure planning across concurrent client projects — enterprise LMS platforms, AI integrations and SaaS products.',
+      'Oversaw deployment lifecycles delivered through CI/CD pipelines across AWS and Azure.',
+      'Grew engineering leadership capacity and mentored developers across the stack.',
+    ],
+  },
+  {
+    org: 'Independent', role: 'Full-Stack & AI Engineer', period: 'May 2026 — Jun 2026',
+    place: 'Remote',
+    points: [
+      'Built a two-stage virtual try-on backend between roles: FLUX.1-schnell generates the garment through Hugging Face Inference Providers, IDM-VTON performs the try-on through a Space Gradio API.',
+      'Shipped it as a modular FastAPI core with a Next.js App Router dashboard — full commit history public.',
     ],
   },
   {
@@ -250,14 +313,15 @@ export const experience: Role[] = [
     org: 'Techloset', role: 'Junior Developer', period: 'Jan 2024 — Feb 2025',
     place: 'Faisalabad, Punjab, Pakistan',
     points: [
-      'Contributed to MERN-stack client projects across the full development lifecycle.',
+      'Shipped MERN-stack client projects across the full development lifecycle, from requirements through production support.',
+      'Named Problem Solver of the Year 2024 for turning critical technical blockers into shipped solutions.',
     ],
   },
   {
-    org: 'Techloset', role: 'Trainee Developer', period: 'Aug 2023 — Jan 2024',
-    place: 'Faisalabad, Punjab, Pakistan',
+    org: 'Techloset', role: 'Full-Stack Developer (Internship)', period: 'Aug 2023 — Jan 2024',
+    place: 'Faisalabad, Punjab, Pakistan · Remote',
     points: [
-      'Trainee placement, run concurrently with the SEERAHT internship below.',
+      'Built and shipped full-stack features for client projects, working remotely alongside the SEERAHT programme below.',
     ],
   },
   {
@@ -265,7 +329,7 @@ export const experience: Role[] = [
     place: 'Faisalabad',
     points: [
       'Hands-on training in full-stack development on real-world projects — JavaScript, React, Next.js, Node.js, databases, APIs and version control.',
-      'Ran concurrently with the Techloset trainee placement from August 2023.',
+      'Ran concurrently with the Techloset internship from August 2023.',
     ],
   },
 ];
@@ -273,6 +337,7 @@ export const experience: Role[] = [
 export const skillGroups: SkillGroup[] = [
   { title: 'Frontend',       items: ['React', 'Next.js', 'TypeScript', 'React Native', 'Tailwind CSS', 'Redux'] },
   { title: 'Backend',        items: ['Node.js', 'Express', 'Prisma ORM', 'MongoDB', 'PostgreSQL', 'REST APIs'] },
+  { title: 'Mobile & Desktop', items: ['React Native', 'Flutter', 'Android (Kotlin)', 'Rust', 'Tauri v2', 'Electron'] },
   { title: 'AI',             items: ['Local LLMs', 'LLM fine-tuning', 'Claude API', 'Hugging Face', 'FastAPI'] },
   { title: 'Cloud & DevOps', items: ['AWS', 'Azure', 'CI/CD pipelines', 'Observability', 'Vercel'] },
   { title: 'Leadership',     items: ['Building leadership teams', 'Technical architecture', 'Infrastructure planning'] },
@@ -286,18 +351,24 @@ export const education: School[] = [
   },
   {
     org: 'Saylani Mass I.T Training (S.M.I.T)',
-    detail: 'Modern web and mobile app development · Computer Software Engineering',
+    detail: 'Modern web and mobile app development · Computer Software Engineering · Grade A',
     period: 'May 2021 — Jul 2023',
   },
 ];
 
-export const certifications: string[] = [
-  'AI Capabilities and Limitations',
-  'Claude Code 101',
+export const certifications: Certification[] = [
+  { name: 'Building with the Claude API', issuer: 'Anthropic', date: 'Aug 2026' },
+  { name: 'Model Context Protocol: Advanced Topics', issuer: 'Anthropic', date: 'Aug 2026' },
+  { name: 'Claude Code in Action', issuer: 'Anthropic', date: 'Aug 2026' },
+  { name: 'Introduction to Subagents', issuer: 'Anthropic', date: 'Aug 2026' },
+  { name: 'AI Fluency: Framework & Foundations', issuer: 'Anthropic', date: 'Aug 2026' },
 ];
 
+/** LinkedIn's own "Top skills" block, kept in its order. */
 export const topSkills: string[] = [
-  'Building Leadership Teams',
-  'Prisma ORM',
-  'Mobile Application Development',
+  'React Native',
+  'Mobile Applications',
+  'Next.js',
+  'Node.js',
+  'Web Technologies',
 ];
